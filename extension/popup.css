@@ -1,0 +1,9 @@
+/* Injected into the page; actual popup content lives inside a Shadow DOM
+   (ua-popup-host), so these rules only need to style our host element and
+   are otherwise inert against the page's own CSS. */
+
+ua-popup-host {
+  all: initial;
+  position: absolute;
+  z-index: 2147483647;
+}
