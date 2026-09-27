@@ -1,0 +1,34 @@
+{
+  "manifest_version": 3,
+  "name": "ClipboardPlus",
+  "version": "1.0.0",
+  "description": "Upload files to any site's file input from your clipboard, a URL, or a custom file — with a smart, editable filename. ",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png"
+  },
+  "permissions": ["storage", "clipboardRead", "activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["format.js", "content.js"],
+      "css": ["popup.css"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": false
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "ClipboardPlus@affan2021shaikh.github.io",
+      "strict_min_version": "109.0"
+    }
+  }
+}
