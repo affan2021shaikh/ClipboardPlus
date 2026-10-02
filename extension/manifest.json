@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "description": "Upload files to any site's file input from your clipboard, a URL, or a custom file — with a smart, editable filename. ",
   "icons": {
-    "48": "icons/icon-48.png",
-    "96": "icons/icon-96.png"
+    "617": "icons/1F4CB.svg",
+    "618": "icons/1F4CB_color.png",
+    "619": "icons/1F4CB.svg"
   },
   "permissions": ["storage", "clipboardRead", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
