@@ -1,0 +1,151 @@
+name: Release ClipboardPlus
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  validate-package-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Parse and validate manifest version
+        id: version
+        shell: python
+        run: |
+          import json
+          import os
+          import re
+          import sys
+
+          manifest_path = "extension/manifest.json"
+
+          if not os.path.isfile(manifest_path):
+              print(f"ERROR: {manifest_path} does not exist.", file=sys.stderr)
+              sys.exit(1)
+
+          try:
+              with open(manifest_path, "r", encoding="utf-8") as f:
+                  manifest = json.load(f)
+          except json.JSONDecodeError as exc:
+              print(f"ERROR: Invalid JSON in {manifest_path}: {exc}", file=sys.stderr)
+              sys.exit(1)
+
+          version = manifest.get("version")
+
+          if not isinstance(version, str):
+              print("ERROR: manifest.json must contain a string 'version' field.", file=sys.stderr)
+              sys.exit(1)
+
+          regex_named_groups = (
+              r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)"
+              r"(?:-(?P<prerelease>"
+              r"(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)"
+              r"(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*"
+              r"))?"
+              r"(?:\+(?P<buildmetadata>"
+              r"[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*"
+              r"))?$"
+          )
+
+          regex_positional_groups = (
+              r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+              r"(?:-("
+              r"(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)"
+              r"(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*"
+              r"))?"
+              r"(?:\+("
+              r"[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*"
+              r"))?$"
+          )
+
+          match_named = re.fullmatch(regex_named_groups, version)
+          match_positional = re.fullmatch(regex_positional_groups, version)
+
+          if match_named is None:
+              print(
+                  "ERROR: Version does not match the named-group SemVer regex.",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          if match_positional is None:
+              print(
+                  "ERROR: Version does not match the positional-group SemVer regex.",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          tag = os.environ["GITHUB_REF_NAME"]
+          expected_tag = f"v{version}"
+
+          if tag != expected_tag:
+              print(
+                  f"ERROR: Git tag '{tag}' does not match manifest version "
+                  f"'{version}' (expected tag '{expected_tag}').",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          print(f"Validated version: {version}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"version={version}\n")
+              output.write(f"tag={tag}\n")
+
+      - name: Package as ZIP with no compression
+        working-directory: extension
+        run: |
+          zip -r -0 ../ClipboardPlus.zip .
+
+      - name: Package as XPI with no compression
+        working-directory: extension
+        run: |
+          zip -r -0 ../ClipboardPlus.xpi .
+
+      - name: Package as TAR.GZ with maximum gzip compression
+        run: |
+          tar -C extension -cf - . | gzip -9 > ClipboardPlus.tar.gz
+
+      - name: Verify release assets
+        run: |
+          set -euo pipefail
+
+          test -f ClipboardPlus.zip
+          test -f ClipboardPlus.xpi
+          test -f ClipboardPlus.tar.gz
+
+          echo "Assets:"
+          ls -lh ClipboardPlus.zip ClipboardPlus.xpi ClipboardPlus.tar.gz
+
+          echo "ZIP compression:"
+          unzip -lv ClipboardPlus.zip
+
+          echo "XPI compression:"
+          unzip -lv ClipboardPlus.xpi
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          gh release create "$TAG" \
+            ClipboardPlus.zip \
+            ClipboardPlus.tar.gz \
+            ClipboardPlus.xpi \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$VERSION" \
+            --generate-notes \
+            --verify-tag
