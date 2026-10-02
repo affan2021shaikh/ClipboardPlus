@@ -5,11 +5,18 @@ on:
     tags:
       - "v*"
 
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag to release, for example v0.1.0"
+        required: true
+        type: string
+
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref_name }}
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -17,12 +24,16 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - name: Check out repository
+      - name: Check out release tag
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
 
       - name: Parse and validate manifest version
         id: version
         shell: python
+        env:
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
         run: |
           import json
           import os
@@ -87,12 +98,13 @@ jobs:
               )
               sys.exit(1)
 
-          tag = os.environ["GITHUB_REF_NAME"]
+          tag = os.environ["TAG"]
+          expected_tag = f"v{version}"
 
-          if tag != f"v{version}":
+          if tag != expected_tag:
               print(
                   f"ERROR: Git tag '{tag}' does not match manifest version "
-                  f"'{version}'. Expected 'v{version}'.",
+                  f"'{version}'. Expected '{expected_tag}'.",
                   file=sys.stderr,
               )
               sys.exit(1)
@@ -137,16 +149,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Delete the existing release, if one exists.
-          # The Git tag itself is intentionally preserved.
+          # Delete the existing release, if present.
+          # The Git tag itself is preserved.
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $TAG already exists; deleting it."
+
             gh release delete "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --yes
           fi
 
-          # Recreate the release with fresh assets and generated notes.
+          # Recreate it from scratch with fresh assets and generated notes.
           gh release create "$TAG" \
             ClipboardPlus.zip \
             ClipboardPlus.tar.gz \
