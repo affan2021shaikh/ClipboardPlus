@@ -14,11 +14,11 @@ concurrency:
 
 jobs:
   validate-package-release:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Parse and validate manifest version
         id: version
@@ -45,7 +45,10 @@ jobs:
           version = manifest.get("version")
 
           if not isinstance(version, str):
-              print("ERROR: manifest.json must contain a string 'version' field.", file=sys.stderr)
+              print(
+                  "ERROR: manifest.json must contain a string 'version' field.",
+                  file=sys.stderr,
+              )
               sys.exit(1)
 
           regex_named_groups = (
@@ -70,17 +73,14 @@ jobs:
               r"))?$"
           )
 
-          match_named = re.fullmatch(regex_named_groups, version)
-          match_positional = re.fullmatch(regex_positional_groups, version)
-
-          if match_named is None:
+          if re.fullmatch(regex_named_groups, version) is None:
               print(
                   "ERROR: Version does not match the named-group SemVer regex.",
                   file=sys.stderr,
               )
               sys.exit(1)
 
-          if match_positional is None:
+          if re.fullmatch(regex_positional_groups, version) is None:
               print(
                   "ERROR: Version does not match the positional-group SemVer regex.",
                   file=sys.stderr,
@@ -88,17 +88,17 @@ jobs:
               sys.exit(1)
 
           tag = os.environ["GITHUB_REF_NAME"]
-          expected_tag = f"v{version}"
 
-          if tag != expected_tag:
+          if tag != f"v{version}":
               print(
                   f"ERROR: Git tag '{tag}' does not match manifest version "
-                  f"'{version}' (expected tag '{expected_tag}').",
+                  f"'{version}'. Expected 'v{version}'.",
                   file=sys.stderr,
               )
               sys.exit(1)
 
           print(f"Validated version: {version}")
+          print(f"Validated tag: {tag}")
 
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"version={version}\n")
@@ -114,7 +114,7 @@ jobs:
         run: |
           zip -r -0 ../ClipboardPlus.xpi .
 
-      - name: Package as TAR.GZ with maximum gzip compression
+      - name: Package as TAR.GZ with maximum compression
         run: |
           tar -C extension -cf - . | gzip -9 > ClipboardPlus.tar.gz
 
@@ -123,24 +123,30 @@ jobs:
           set -euo pipefail
 
           test -f ClipboardPlus.zip
-          test -f ClipboardPlus.xpi
           test -f ClipboardPlus.tar.gz
+          test -f ClipboardPlus.xpi
 
-          echo "Assets:"
-          ls -lh ClipboardPlus.zip ClipboardPlus.xpi ClipboardPlus.tar.gz
-
-          echo "ZIP compression:"
           unzip -lv ClipboardPlus.zip
-
-          echo "XPI compression:"
           unzip -lv ClipboardPlus.xpi
 
-      - name: Create GitHub Release
+      - name: Overwrite GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
           TAG: ${{ steps.version.outputs.tag }}
         run: |
+          set -euo pipefail
+
+          # Delete the existing release, if one exists.
+          # The Git tag itself is intentionally preserved.
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; deleting it."
+            gh release delete "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --yes
+          fi
+
+          # Recreate the release with fresh assets and generated notes.
           gh release create "$TAG" \
             ClipboardPlus.zip \
             ClipboardPlus.tar.gz \
