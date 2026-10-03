@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ClipboardPlus",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Upload files to any site's file input from your clipboard, a URL, or a custom file — with a smart, editable filename. ",
   "icons": {
     "16": "./icons/OpenMoji-1F4CB-color.svg",
