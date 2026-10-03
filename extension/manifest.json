@@ -4,9 +4,14 @@
   "version": "0.1.1",
   "description": "Upload files to any site's file input from your clipboard, a URL, or a custom file — with a smart, editable filename. ",
   "icons": {
-    "617": "icons/1F4CB.svg",
-    "618": "icons/1F4CB_color.png",
-    "619": "icons/1F4CB.svg"
+    "16": "./icons/OpenMoji-1F4CB-color.svg",
+    "32": "./icons/OpenMoji-1F4CB-color.svg",
+    "48": "./icons/OpenMoji-1F4CB-color.svg",
+    "64": "./icons/OpenMoji-1F4CB-color.svg",
+    "72": "./icons/OpenMoji-1F4CB-72x72-color.png",
+    "128": "./icons/OpenMoji-1F4CB-color.svg",
+    "618": "./icons/OpenMoji-1F4CB-618x618-color.png",
+    "619": "./icons/OpenMoji-1F4CB-color.svg"
   },
   "permissions": ["storage", "clipboardRead", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
